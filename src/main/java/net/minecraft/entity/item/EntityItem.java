@@ -30,6 +30,7 @@ public class EntityItem extends Entity
 	private static final Logger logger = LogManager.getLogger();
 	public int age;
 	public int delayBeforeCanPickup;
+	// public int tickFromCanPickUp;
 	private int health;
 	private String field_145801_f;
 	private String field_145802_g;
@@ -83,6 +84,10 @@ public class EntityItem extends Entity
 
 	public void onUpdate()
 	{
+		if (this.delayBeforeCanPickup > 0) //fix pickuping declocked items
+		{
+			--this.delayBeforeCanPickup;
+		}
 		ItemStack stack = this.getDataWatcher().getWatchableObjectItemStack(10);
 		if (stack != null && stack.getItem() != null)
 		{
@@ -100,11 +105,10 @@ public class EntityItem extends Entity
 		{
 			super.onUpdate();
 
-			if (this.delayBeforeCanPickup > 0)
-			{
-				--this.delayBeforeCanPickup;
-			}
-
+			// if (this.delayBeforeCanPickup > 0)
+			// {
+				// --this.delayBeforeCanPickup;
+			// }
 			this.prevPosX = this.posX;
 			this.prevPosY = this.posY;
 			this.prevPosZ = this.posZ;
