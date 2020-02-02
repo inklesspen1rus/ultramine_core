@@ -1,6 +1,5 @@
 This is stable version of UltraMine with changes
 Builder for Windows
-Tested python version 3.7
 Original repository on gitlab - https://gitlab.ultramine.ru/ultramine
 
 Changes:
