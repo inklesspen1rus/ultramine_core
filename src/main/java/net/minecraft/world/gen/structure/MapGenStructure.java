@@ -251,11 +251,6 @@ public abstract class MapGenStructure extends MapGenBase
 			else
 			{
 				NBTTagCompound nbttagcompound = this.field_143029_e.func_143041_a();
-				if(nbttagcompound == null)
-				{
-					this.structureMap = field_143029_e.getStructureMap();
-					return;
-				}
 				Iterator iterator = nbttagcompound.func_150296_c().iterator();
 
 				while (iterator.hasNext())
@@ -281,8 +276,6 @@ public abstract class MapGenStructure extends MapGenBase
 					}
 				}
 			}
-
-			field_143029_e.replaceNbtWithStrictureMap(this.structureMap);
 		}
 	}
 

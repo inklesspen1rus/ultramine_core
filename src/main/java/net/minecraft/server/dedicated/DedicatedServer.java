@@ -41,10 +41,12 @@ import net.minecraft.world.WorldType;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ultramine.core.service.InjectService;
-import org.ultramine.core.permissions.MinecraftPermissions;
+import org.ultramine.permission.MinecraftPermissions;
+import org.ultramine.permission.PermissionRepository;
+import org.ultramine.permission.internal.ServerPermissionManager;
 import org.ultramine.server.BackupManager;
 import org.ultramine.server.ConfigurationHandler;
+import org.ultramine.server.PermissionHandler;
 import org.ultramine.server.UltramineServerConfig;
 import org.ultramine.server.WorldsConfig.WorldConfig;
 import org.ultramine.server.bootstrap.UMBootstrap;
@@ -52,7 +54,7 @@ import org.ultramine.server.internal.JLineSupport;
 import org.ultramine.server.internal.UMHooks;
 import org.ultramine.server.util.BasicTypeParser;
 import org.ultramine.server.util.GlobalExecutors;
-import org.ultramine.core.permissions.Permissions;
+import org.ultramine.server.world.WorldDescriptor;
 
 @SideOnly(Side.SERVER)
 public class DedicatedServer extends MinecraftServer implements IServer
@@ -253,6 +255,7 @@ public class DedicatedServer extends MinecraftServer implements IServer
 		this.setBuildLimit((this.getBuildLimit() + 8) / 16 * 16);
 		this.setBuildLimit(MathHelper.clamp_int(this.getBuildLimit(), 64, 256));
 		globalWConf.settings.maxBuildHeight = this.getBuildLimit();
+		this.setPermissionManager(new ServerPermissionManager(ConfigurationHandler.getSettingDir(), new PermissionRepository())); // ultramine
 		if (!FMLCommonHandler.instance().handleServerAboutToStart(this)) { return false; }
 		field_155771_h.info("Preparing level \"" + this.getFolderName() + "\"");
 		this.loadAllWorlds(this.getFolderName(), this.getFolderName(), k, worldtype, s2);
@@ -449,7 +452,7 @@ public class DedicatedServer extends MinecraftServer implements IServer
 		{
 			return false;
 		}
-		else if (perms.has(par5EntityPlayer, MinecraftPermissions.IGNORE_SPAWN_PROTECTION))
+		else if (PermissionHandler.getInstance().has(par5EntityPlayer, MinecraftPermissions.IGNORE_SPAWN_PROTECTION))
 		{
 			return false;
 		}
@@ -573,8 +576,7 @@ public class DedicatedServer extends MinecraftServer implements IServer
 	}
 	
 	/* ======================================== ULTRAMINE START =====================================*/
-
-	@InjectService private static Permissions perms;
+	
 	private final BackupManager backupMgr = new BackupManager(this);
 	
 	@Override

@@ -21,15 +21,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.ultramine.commands.Command;
 import org.ultramine.commands.CommandContext;
 import org.ultramine.commands.IExtendedCommand;
-import org.ultramine.core.service.InjectService;
+import org.ultramine.server.PermissionHandler;
 import org.ultramine.server.Teleporter;
 import org.ultramine.server.util.BasicTypeParser;
-import org.ultramine.core.permissions.Permissions;
 
 public class VanillaCommands
 {
-	@InjectService private static Permissions perms;
-
 	@Command(
 			name = "help",
 			group = "player",
@@ -88,7 +85,7 @@ public class VanillaCommands
 	@Command(
 			name = "tp",
 			group = "vanilla",
-			aliases = {"tppos", "tpposp", "tpto"},
+			aliases = {},
 			permissions = {"command.vanilla.tp"},
 			syntax = {
 					"<player%dst>",
@@ -147,7 +144,7 @@ public class VanillaCommands
 	private static void sendMessage(ICommandSender from, ICommandSender to, String message)
 	{
 		IChatComponent msg = ForgeHooks.newChatWithLinks(message);
-		msg.getChatStyle().setColor(BasicTypeParser.parseColor(perms.getMeta(from, "textcolor")));
+		msg.getChatStyle().setColor(BasicTypeParser.parseColor(PermissionHandler.getInstance().getMeta(from, "textcolor")));
 		
 		from.addChatMessage(new ChatComponentTranslation("command.msg.display.outgoing", to.func_145748_c_(), msg).setChatStyle(new ChatStyle().setColor(GOLD)));
 		to.addChatMessage(new ChatComponentTranslation("command.msg.display.incoming", from.func_145748_c_(), msg).setChatStyle(new ChatStyle().setColor(GOLD)));

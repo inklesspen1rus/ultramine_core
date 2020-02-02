@@ -32,6 +32,8 @@ import net.minecraftforge.event.world.WorldEvent;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ultramine.permission.PermissionRepository;
+import org.ultramine.permission.internal.ClientPermissionManager;
 
 @SideOnly(Side.CLIENT)
 public class IntegratedServer extends MinecraftServer
@@ -96,6 +98,7 @@ public class IntegratedServer extends MinecraftServer
 		this.setAllowFlight(true);
 		logger.info("Generating keypair");
 		this.setKeyPair(CryptManager.createNewKeyPair());
+		this.setPermissionManager(new ClientPermissionManager(getServerOwner(), new PermissionRepository())); // ultramine
 		if (!FMLCommonHandler.instance().handleServerAboutToStart(this)) { return false; }
 		this.loadAllWorlds(this.getFolderName(), this.getWorldName(), this.theWorldSettings.getSeed(), this.theWorldSettings.getTerrainType(), this.theWorldSettings.func_82749_j());
 		this.setMOTD(this.getServerOwner() + " - " + this.worldServers[0].getWorldInfo().getWorldName());

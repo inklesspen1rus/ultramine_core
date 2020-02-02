@@ -11,8 +11,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import net.minecraft.world.gen.structure.MapGenStructureData;
-import org.ultramine.server.internal.UMHooks;
 import org.ultramine.server.util.AsyncIOUtils;
 
 import net.minecraft.nbt.CompressedStreamTools;
@@ -47,7 +45,6 @@ public class MapStorage
 		{
 			if (this.saveHandler != null)
 			{
-				boolean prevValue = p_75742_1_ == MapGenStructureData.class && NBTTagCompound.setUseKolobokeMap(true);
 				try
 				{
 					File file1 = this.saveHandler.getMapFileFromName(p_75742_2_);
@@ -72,11 +69,6 @@ public class MapStorage
 				catch (Exception exception1)
 				{
 					exception1.printStackTrace();
-				}
-				finally
-				{
-					if(p_75742_1_ == MapGenStructureData.class)
-						NBTTagCompound.setUseKolobokeMap(prevValue);
 				}
 			}
 
@@ -126,19 +118,12 @@ public class MapStorage
 	{
 		if (this.saveHandler != null)
 		{
-			boolean prevValue = NBTTagCompound.setUseKolobokeMap(true);
 			try
 			{
 				File file1 = this.saveHandler.getMapFileFromName(p_75747_1_.mapName);
 
 				if (file1 != null)
 				{
-					if(p_75747_1_ instanceof MapGenStructureData)
-					{
-						UMHooks.writeMapGenStructureData((MapGenStructureData) p_75747_1_, file1);
-						return;
-					}
-
 					NBTTagCompound nbttagcompound = new NBTTagCompound();
 					p_75747_1_.writeToNBT(nbttagcompound);
 					NBTTagCompound nbttagcompound1 = new NBTTagCompound();
@@ -149,10 +134,6 @@ public class MapStorage
 			catch (Exception exception)
 			{
 				exception.printStackTrace();
-			}
-			finally
-			{
-				NBTTagCompound.setUseKolobokeMap(prevValue);
 			}
 		}
 	}

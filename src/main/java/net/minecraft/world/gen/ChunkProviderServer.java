@@ -3,6 +3,7 @@ package net.minecraft.world.gen;
 import java.io.IOException;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +16,7 @@ import net.minecraft.crash.CrashReport;
 import net.minecraft.crash.CrashReportCategory;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.IProgressUpdate;
 import net.minecraft.util.LongHashMap;
 import net.minecraft.util.ReportedException;
@@ -28,6 +30,8 @@ import net.minecraft.world.chunk.EmptyChunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraft.world.chunk.storage.IChunkLoader;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.chunkio.ChunkIOExecutor;
 import net.minecraftforge.event.world.ChunkDataEvent;
@@ -413,7 +417,7 @@ public class ChunkProviderServer implements IChunkProvider
 						}
 						this.safeSaveExtraChunkData(chunk);
 						this.chunkMap.remove(hash);
-						chunk.release();
+						chunk.free();
 					}
 				}
 				
@@ -651,7 +655,7 @@ public class ChunkProviderServer implements IChunkProvider
 				safeSaveChunk(chunk);
 			else
 				MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Save(chunk, new NBTTagCompound())); //CodeChickenLib memory leak fix
-			chunk.release();
+			chunk.free();
 		}
 		
 		chunkMap.clear();
@@ -661,10 +665,10 @@ public class ChunkProviderServer implements IChunkProvider
 			((AnvilChunkLoader)currentChunkLoader).unsafeRemoveAll();
 	}
 	
-	public void release()
+	public void free()
 	{
 		for(Chunk chunk : chunkMap.valueCollection())
-			chunk.release();
+			chunk.free();
 		chunkMap.clear();
 		setWorldUnloaded();
 	}

@@ -5,8 +5,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import org.apache.commons.lang3.ArrayUtils;
 import org.ultramine.commands.syntax.ArgumentsPattern;
-import org.ultramine.core.service.InjectService;
-import org.ultramine.core.permissions.Permissions;
+import org.ultramine.server.PermissionHandler;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +17,6 @@ import java.util.Set;
 
 public class HandlerBasedCommand implements IExtendedCommand
 {
-	@InjectService private static Permissions perms;
 	private String name;
 	private String usage;
 	private String group;
@@ -97,7 +95,7 @@ public class HandlerBasedCommand implements IExtendedCommand
 	@Override
 	public boolean canCommandSenderUseCommand(ICommandSender var1)
 	{
-		return (isUsableFromServer && !(var1 instanceof EntityPlayer)) || perms.hasAny(var1, permissions);
+		return (isUsableFromServer && !(var1 instanceof EntityPlayer)) || PermissionHandler.getInstance().hasAny(var1, permissions);
 	}
 
 	@Override

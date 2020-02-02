@@ -79,6 +79,7 @@ import net.minecraft.world.storage.WorldInfo;
 import org.apache.commons.lang3.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ultramine.permission.IPermissionManager;
 import org.ultramine.scheduler.Scheduler;
 import org.ultramine.server.BackupManager;
 import org.ultramine.server.ConfigurationHandler;
@@ -369,7 +370,7 @@ public abstract class MinecraftServer implements ICommandSender, Runnable, IPlay
 				WorldServer[] tmp = worldServers;
 				for (WorldServer world : tmp)
 				{
-					world.theChunkProviderServer.release();
+					world.theChunkProviderServer.free();
 					DimensionManager.setWorld(world.provider.dimensionId, null);
 				}
 			}
@@ -1504,6 +1505,7 @@ public abstract class MinecraftServer implements ICommandSender, Runnable, IPlay
 	public final long startTime = System.currentTimeMillis();
 	private Thread serverThread;
 	private final MultiWorld multiworld = new MultiWorld(this);
+	private IPermissionManager permissionManager;
 	private final Scheduler scheduler = new Scheduler();
 	
 	public Thread getServerThread()
@@ -1519,6 +1521,16 @@ public abstract class MinecraftServer implements ICommandSender, Runnable, IPlay
 	public BackupManager getBackupManager()
 	{
 		return null;
+	}
+
+	public IPermissionManager getPermissionManager()
+	{
+		return permissionManager;
+	}
+
+	protected void setPermissionManager(IPermissionManager permissionManager)
+	{
+		this.permissionManager = permissionManager;
 	}
 	
 	public Scheduler getScheduler()

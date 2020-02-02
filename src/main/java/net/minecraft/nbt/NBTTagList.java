@@ -9,24 +9,9 @@ import java.util.List;
 
 public class NBTTagList extends NBTBase
 {
-	private List tagList;
+	private List tagList = new ArrayList();
 	private byte tagType = 0;
 	private static final String __OBFID = "CL_00001224";
-
-	public NBTTagList(List tagList)
-	{
-		this.tagList = tagList;
-	}
-
-	public NBTTagList(int size)
-	{
-		this(new ArrayList(size));
-	}
-
-	public NBTTagList()
-	{
-		this(new ArrayList());
-	}
 
 	void write(DataOutput p_74734_1_) throws IOException
 	{
@@ -205,7 +190,7 @@ public class NBTTagList extends NBTBase
 
 	public NBTBase copy()
 	{
-		NBTTagList nbttaglist = new NBTTagList(tagList.size());
+		NBTTagList nbttaglist = new NBTTagList();
 		nbttaglist.tagType = this.tagType;
 		Iterator iterator = this.tagList.iterator();
 

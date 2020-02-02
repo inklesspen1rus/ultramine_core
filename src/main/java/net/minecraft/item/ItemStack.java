@@ -159,7 +159,7 @@ public final class ItemStack
 
 		if (this.stackTagCompound != null)
 		{
-			p_77955_1_.setTag("tag", this.stackTagCompound.copy());
+			p_77955_1_.setTag("tag", this.stackTagCompound);
 		}
 
 		return p_77955_1_;

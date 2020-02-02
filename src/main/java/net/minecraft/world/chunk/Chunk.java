@@ -54,8 +54,6 @@ import org.ultramine.server.chunk.IChunkDependency;
 import org.ultramine.server.chunk.PendingBlockUpdate;
 import org.ultramine.server.internal.LambdaHolder;
 import org.ultramine.server.util.WeakObjectPool;
-import org.ultramine.server.event.WorldUpdateObject;
-import org.ultramine.server.event.WorldUpdateObjectType;
 
 public class Chunk implements IChunkDependency
 {
@@ -879,19 +877,8 @@ public class Chunk implements IChunkDependency
 				return null;
 			}
 
-			// This vanilla code restores broken TileEntities. Invokes only on TileEntity GET.
-			// Newly created TileEntity should not be attached to WorldUpdateObject that invokes this method.
-			// So using this hack to override and then restore WorldUpdateObject
-			WorldUpdateObject obj = worldObj.getEventProxy().getUpdateObject();
-			WorldUpdateObjectType type = obj == null ? null : obj.getType();
-			if(type != null)
-				worldObj.getEventProxy().pushState(WorldUpdateObjectType.UNKNOWN);
-
 			tileentity = block.createTileEntity(worldObj, meta);
 			this.worldObj.setTileEntity(this.xPosition * 16 + p_150806_1_, p_150806_2_, this.zPosition * 16 + p_150806_3_, tileentity);
-
-			if(type != null)
-				worldObj.getEventProxy().pushState(type);
 		}
 
 		return tileentity;
@@ -1202,7 +1189,7 @@ public class Chunk implements IChunkDependency
 				{
 					this.storageArrays[l] = new ExtendedBlockStorage(l << 4, flag1, false);
 					if(!flag1)
-						this.storageArrays[l].getSlot().zerofillSkylight();
+						this.storageArrays[l].getSlot().clearSkylight();
 				}
 
 				this.storageArrays[l].getSlot().setLSB(p_76607_1_, k);
@@ -1211,7 +1198,7 @@ public class Chunk implements IChunkDependency
 			else if (p_76607_4_ && this.storageArrays[l] != null)
 			{
 				this.storageArrays[l] = null;
-				this.storageArrays[l].release();
+				this.storageArrays[l].free();
 			}
 		}
 
@@ -1595,7 +1582,7 @@ public class Chunk implements IChunkDependency
 			pendingUpdatesQueue = null;
 		}
 	}
-
+	
 	private void convertTileEntityMap()
 	{
 		fastTileEntityMap.clear();
@@ -1836,12 +1823,12 @@ public class Chunk implements IChunkDependency
 		return getEntityCountByType(e.getEntityType());
 	}
 	
-	public void release()
+	public void free()
 	{
 		for(ExtendedBlockStorage exbs : storageArrays)
 		{
 			if(exbs != null)
-				exbs.release();
+				exbs.free();
 		}
 		releasePendingUpdatesSets();
 	}

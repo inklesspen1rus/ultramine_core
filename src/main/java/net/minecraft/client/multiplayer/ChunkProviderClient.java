@@ -45,7 +45,7 @@ public class ChunkProviderClient implements IChunkProvider
 		if (!chunk.isEmpty())
 		{
 			chunk.onChunkUnload();
-			chunk.release();
+			chunk.free();
 		}
 
 		this.chunkMapping.remove(ChunkCoordIntPair.chunkXZ2Int(p_73234_1_, p_73234_2_));
@@ -59,7 +59,7 @@ public class ChunkProviderClient implements IChunkProvider
 		if(old != null)
 		{
 			old.onChunkUnload();
-			old.release();
+			old.free();
 			chunkMapping.remove(key);
 			chunkListing.remove(old);
 		}
@@ -135,7 +135,7 @@ public class ChunkProviderClient implements IChunkProvider
 	public void free()
 	{
 		for(Object o : chunkListing)
-			((Chunk)o).release();
+			((Chunk)o).free();
 		chunkListing.clear();
 	}
 }

@@ -2,8 +2,10 @@ package org.ultramine.server.internal;
 
 import net.minecraft.util.DamageSource;
 import org.ultramine.commands.basic.GenWorldCommand;
-import org.ultramine.core.service.InjectService;
+import org.ultramine.economy.CurrencyRegistry;
+import org.ultramine.economy.PlayerHoldingsEvent;
 import org.ultramine.server.ConfigurationHandler;
+import org.ultramine.server.PermissionHandler;
 import org.ultramine.server.Teleporter;
 import org.ultramine.server.UltramineServerConfig.ToolsConf.AutoBroacastConf;
 import org.ultramine.server.UltramineServerConfig.ToolsConf.AutoDebugInfoConf;
@@ -15,6 +17,7 @@ import org.ultramine.server.util.BasicTypeFormatter;
 import org.ultramine.server.util.BasicTypeParser;
 import org.ultramine.server.util.WarpLocation;
 
+import cpw.mods.fml.common.eventhandler.Event;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.functions.GenericIterableFactory;
@@ -23,6 +26,7 @@ import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentStyle;
@@ -39,14 +43,14 @@ import static net.minecraft.util.EnumChatFormatting.*;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.ServerChatEvent;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import org.ultramine.core.permissions.Permissions;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.world.BlockEvent;
 
 public class UMEventHandler
 {
-	@InjectService private static Permissions perms;
-
 	@SideOnly(Side.SERVER)
 	@SubscribeEvent(priority = EventPriority.HIGH)
 	public void checkChatPermission(ServerChatEvent e)
@@ -54,7 +58,12 @@ public class UMEventHandler
 		if(e.player.playerNetServerHandler == null || e.player.getData() == null)
 			return;
 		PlayerCoreData data = e.player.getData().core();
-		if(data.isMuted())
+		if(!PermissionHandler.getInstance().has(e.player, "ability.player.chat"))
+		{
+			e.setCanceled(true);
+			e.player.addChatMessage(new ChatComponentTranslation("ultramine.ability.chat").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+		}
+		else if(data.isMuted())
 		{
 			e.setCanceled(true);
 			if(data.getUnmuteTime() != Long.MAX_VALUE)
@@ -80,14 +89,14 @@ public class UMEventHandler
 	{
 		if(e.player.playerNetServerHandler == null || e.player.getData() == null)
 			return;
-		String prefix = perms.getMeta(e.player, "prefix").replace('&', '\u00A7');
-		String postfix = perms.getMeta(e.player, "postfix").replace('&', '\u00A7');
+		String prefix = PermissionHandler.getInstance().getMeta(e.player, "prefix").replace('&', '\u00A7');
+		String postfix = PermissionHandler.getInstance().getMeta(e.player, "postfix").replace('&', '\u00A7');
 		
 		ChatComponentStyle username = (ChatComponentStyle) e.player.func_145748_c_();
 		IChatComponent msg = ForgeHooks.newChatWithLinks(e.message);
 		
-		username.getChatStyle().setColor(BasicTypeParser.parseColor(perms.getMeta(e.player, "color")));
-		EnumChatFormatting color = BasicTypeParser.parseColor(perms.getMeta(e.player, "textcolor"));
+		username.getChatStyle().setColor(BasicTypeParser.parseColor(PermissionHandler.getInstance().getMeta(e.player, "color")));
+		EnumChatFormatting color = BasicTypeParser.parseColor(PermissionHandler.getInstance().getMeta(e.player, "textcolor"));
 		msg.getChatStyle().setColor(color != null ? color : EnumChatFormatting.WHITE);
 		
 		e.component = new ChatComponentTranslation("%s%s%s\u00A77: %s", prefix, username, postfix, msg);
@@ -159,7 +168,7 @@ public class UMEventHandler
 				
 				server.addChatMessage(full);
 				for(EntityPlayerMP player : GenericIterableFactory.newCastingIterable(server.getConfigurationManager().playerEntityList, EntityPlayerMP.class))
-					if(perms.has(player, "show.debuginfo"))
+					if(PermissionHandler.getInstance().has(player, "show.debuginfo"))
 						player.addChatMessage(full);
 			}
 			
@@ -236,6 +245,80 @@ public class UMEventHandler
 	}
 	
 	@SideOnly(Side.SERVER)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void onBreakEvent(BlockEvent.BreakEvent e)
+	{
+		if(!e.getPlayer().isEntityPlayerMP() || ((EntityPlayerMP)e.getPlayer()).playerNetServerHandler == null)
+			return;
+		if(!PermissionHandler.getInstance().has(e.getPlayer(), "ability.player.blockbreak"))
+		{
+			e.setCanceled(true);
+			e.getPlayer().addChatMessage(new ChatComponentTranslation("ultramine.ability.blockbreak").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+		}
+	}
+	
+	@SideOnly(Side.SERVER)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void onPlaceEvent(BlockEvent.PlaceEvent e)
+	{
+		if(!e.player.isEntityPlayerMP() || ((EntityPlayerMP)e.player).playerNetServerHandler == null)
+			return;
+		if(!PermissionHandler.getInstance().has(e.player, "ability.player.blockplace"))
+		{
+			e.setCanceled(true);
+			e.player.addChatMessage(new ChatComponentTranslation("ultramine.ability.blockplace").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+		}
+	}
+	
+	@SideOnly(Side.SERVER)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void onPlayerInteractEvent(PlayerInteractEvent e)
+	{
+		if(!e.entityPlayer.isEntityPlayerMP() || ((EntityPlayerMP)e.entityPlayer).playerNetServerHandler == null)
+			return;
+		if(!PermissionHandler.getInstance().has(e.entityPlayer, "ability.player.useitem"))
+		{
+			e.useItem = Event.Result.DENY;
+			if(e.entityPlayer.inventory.getCurrentItem() != null)
+				e.entityPlayer.addChatMessage(new ChatComponentTranslation("ultramine.ability.useitem").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+		}
+		if(!PermissionHandler.getInstance().has(e.entityPlayer, "ability.player.useblock"))
+		{
+			e.useBlock = Event.Result.DENY;
+			e.entityPlayer.addChatMessage(new ChatComponentTranslation("ultramine.ability.useblock").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+		}
+		
+		if(e.useItem == Event.Result.DENY && e.useBlock == Event.Result.DENY)
+			e.setCanceled(true);
+	}
+	
+	@SideOnly(Side.SERVER)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void onLivingAttackEvent(LivingAttackEvent e)
+	{
+		Entity attacker = e.source.getEntity();
+		if(attacker != null && attacker.isEntityPlayerMP())
+		{
+			EntityPlayerMP player = (EntityPlayerMP)attacker;
+			if(player.playerNetServerHandler == null)
+				return;
+			if(!PermissionHandler.getInstance().has(player, "ability.player.attack"))
+			{
+				e.setCanceled(true);
+				player.addChatMessage(new ChatComponentTranslation("ultramine.ability.attack").setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+			}
+		}
+	}
+	
+	@SideOnly(Side.SERVER)
+	@SubscribeEvent(priority = EventPriority.HIGH)
+	public void onHoldingsCreate(PlayerHoldingsEvent.CreateEvent e)
+	{
+		if(e.holdings.getCurrency() == CurrencyRegistry.GSC)
+			e.holdings.setBalance(ConfigurationHandler.getServerConfig().tools.economy.startBalance);
+	}
+	
+	@SideOnly(Side.SERVER)
 	@SubscribeEvent(priority=EventPriority.LOWEST)
 	public void onPlayerLoggedIn(PlayerLoggedInEvent e)
 	{
@@ -253,7 +336,7 @@ public class UMEventHandler
 	{
 		if(e.damageSource == DamageSource.command)
 			e.setDeathMessage(null);
-		if(perms.has(e.entityPlayer, "ability.admin.keepinventory"))
+		if(e.damageSource == DamageSource.outOfWorld || PermissionHandler.getInstance().has(e.entityPlayer, "ability.admin.keepinventory"))
 			e.setKeepInventory(true);
 	}
 }

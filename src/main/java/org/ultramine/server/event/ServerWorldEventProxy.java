@@ -10,6 +10,7 @@ import gnu.trove.list.TLongList;
 import gnu.trove.list.array.TLongArrayList;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
@@ -48,7 +49,6 @@ public class ServerWorldEventProxy extends WorldEventProxy
 		object.setType(WorldUpdateObjectType.UNKNOWN);
 		object.setEntity(null);
 		object.setTileEntity(null);
-		object.setBlockUpdateInitiator(null);
 		current = null;
 	}
 	
@@ -65,10 +65,9 @@ public class ServerWorldEventProxy extends WorldEventProxy
 	}
 	
 	@Override
-	public void startBlock(Block block, int x, int y, int z, GameProfile initiator)
+	public void startBlock(Block block, int x, int y, int z)
 	{
 		object.setBlock(block, x, y, z);
-		object.setBlockUpdateInitiator(initiator);
 	}
 	
 	@Override
@@ -99,17 +98,29 @@ public class ServerWorldEventProxy extends WorldEventProxy
 	@Override
 	public GameProfile getObjectOwner()
 	{
-		GameProfile owner = object.getOwner();
-		if(owner != null)
-			return owner;
-		WorldUpdateObjectType type = object.getType();
-		if(type == WorldUpdateObjectType.BLOCK_EVENT || type == WorldUpdateObjectType.BLOCK_PENDING || type == WorldUpdateObjectType.BLOCK_RANDOM)
+		switch(object.getType())
 		{
+		case BLOCK_EVENT:
+		case BLOCK_PENDING:
+		case BLOCK_RANDOM:
 			TileEntity te = world.getTileEntity(object.getX(), object.getY(), object.getZ());
 			if(te != null)
 				return te.getObjectOwner();
+			break;
+		case ENTITY:
+			return object.getEntity().getObjectOwner();
+		case ENTITY_WEATHER:
+			break;
+		case PLAYER:
+			return ((EntityPlayer)object.getEntity()).getGameProfile();
+		case TILEE_ENTITY:
+			return object.getTileEntity().getObjectOwner();
+		case UNKNOWN:
+			break;
+		case WEATHER:
+			break;
 		}
-
+		
 		return null;
 	}
 	

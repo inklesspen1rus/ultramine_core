@@ -47,6 +47,7 @@ import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.network.Packet;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.play.client.C15PacketClientSettings;
+import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.server.S02PacketChat;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.network.play.server.S0APacketUseBed;
@@ -101,9 +102,7 @@ import net.minecraft.world.biome.BiomeGenBase;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ultramine.core.economy.account.Account;
-import org.ultramine.core.economy.service.Economy;
-import org.ultramine.core.service.InjectService;
+import org.ultramine.server.PermissionHandler;
 import org.ultramine.server.WorldConstants;
 import org.ultramine.server.event.PlayerDeathEvent;
 import org.ultramine.server.internal.UMHooks;
@@ -116,7 +115,6 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.PlayerDropsEvent;
-import org.ultramine.core.permissions.Permissions;
 
 public class EntityPlayerMP extends EntityPlayer implements ICrafting
 {
@@ -414,6 +412,32 @@ public class EntityPlayerMP extends EntityPlayer implements ICrafting
 
 		this.addStat(StatList.deathsStat, 1);
 		this.func_110142_aN().func_94549_h();
+		
+		
+		// this.preparePlayerToSpawn();
+		// this.yOffset = 1.62F;
+		// this.setSize(0.6F, 1.8F);
+		// this.setHealth(this.getMaxHealth());
+		// this.deathTime = 0;
+		// if(this.playerConqueredTheEnd)
+		// {
+			// this.mcServer.getConfigurationManager().respawnPlayer(this, 0, true);
+		// }
+		// else
+		// {
+			// this.mcServer.getConfigurationManager().respawnPlayer(this, this.dimension, false);
+		// }
+		// this = this.serverController.getConfigurationManager().respawnPlayer(this, 0, this.playerEntity.playerConqueredTheEnd);
+		// World world = this.mcServer.worldServerForDimension(p_72368_2_);
+		// this.setWorldPosition(0, -249.0, 64.0, 220.0);
+		// this.setHealth(this.getMaxHealth());
+		// this.yOffset = 1.62F;
+		// this.setSize(0.6F, 1.8F);
+		// this.deathTime = 0;
+		
+		this.playerNetServerHandler.processClientStatus(new C16PacketClientStatus(C16PacketClientStatus.EnumState.PERFORM_RESPAWN));
+		
+		
 	}
 
 	public boolean attackEntityFrom(DamageSource p_70097_1_, float p_70097_2_)
@@ -997,27 +1021,10 @@ public class EntityPlayerMP extends EntityPlayer implements ICrafting
 	}
 	
 	/* ===================================== ULTRAMINE START =====================================*/
-
+	
 	private int renderDistance;
 	private final ChunkSendManager chunkMgr = new ChunkSendManager(this);
 	private PlayerData playerData;
-	@InjectService private static Permissions perms;
-	@InjectService private static Economy economy;
-
-	public boolean hasPermission(String permission)
-	{
-		return perms.has(this, permission);
-	}
-
-	public String getMeta(String key)
-	{
-		return perms.getMeta(this, key);
-	}
-
-	public Account getAccount()
-	{
-		return economy.getPlayerAccount(this);
-	}
 	
 	@Override
 	public boolean isEntityPlayerMP()
@@ -1049,6 +1056,16 @@ public class EntityPlayerMP extends EntityPlayer implements ICrafting
 	{
 		playerData.setProfile(getGameProfile());
 		this.playerData = playerData;
+	}
+	
+	public boolean hasPermission(String permission)
+	{
+		return PermissionHandler.getInstance().has(this, permission);
+	}
+	
+	public String getMeta(String key)
+	{
+		return PermissionHandler.getInstance().getMeta(this, key);
 	}
 	
 	public String getTabListName()

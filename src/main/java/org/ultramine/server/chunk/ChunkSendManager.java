@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ultramine.core.service.InjectService;
 import org.ultramine.server.WorldConstants;
 import org.ultramine.server.util.BlockFace;
 import org.ultramine.server.util.ChunkCoordComparator;
@@ -44,7 +43,6 @@ public class ChunkSendManager
 {
 	private static final Logger log = LogManager.getLogger();
 	private static final ExecutorService executor = Executors.newFixedThreadPool(1);
-	@InjectService private static AntiXRayService<Object> antiXRayService;
 	private static final double MIN_RATE = 0.2d;
 	
 	private final EntityPlayerMP player;
@@ -461,14 +459,12 @@ public class ChunkSendManager
 	private class CompressAndSendChunkTask implements Runnable
 	{
 		private final ChunkIdStruct chunkId;
-		private final ChunkSnapshot chunkSnapshot;
-		private final Object antiXRayParam;
-
+		private final S21PacketChunkData packet;
+		
 		public CompressAndSendChunkTask(ChunkIdStruct chunkId)
 		{
 			this.chunkId = chunkId;
-			this.chunkSnapshot = ChunkSnapshot.of(chunkId.chunk); // must be sync
-			this.antiXRayParam = antiXRayService.prepareChunkSync(this.chunkSnapshot, chunkId.chunk);
+			this.packet = S21PacketChunkData.makeForSend(chunkId.chunk); //must be sync
 		}
 		
 		private boolean checkActual()
@@ -487,14 +483,9 @@ public class ChunkSendManager
 		public void run()
 		{
 			if(!checkActual())
-			{
-				chunkSnapshot.release();
 				return;
-			}
-
-			antiXRayService.prepareChunkAsync(chunkSnapshot, antiXRayParam);
-			S21PacketChunkData packet = S21PacketChunkData.makeForSend(chunkSnapshot); // may be async for chunk snapshot
-			packet.deflate(); // chunkSnapshot released here
+			
+			packet.deflate();
 			
 			//Нужно одновременно отправить чанк и добавить его в список sendingStage2, чтобы можно было корректно отменить отправку:
 			//(Если чанк есть в списке sendingStage2, посылать пакет на отгрузку. В ином случае просто удалиь из списка sending)

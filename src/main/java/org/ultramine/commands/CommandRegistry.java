@@ -1,14 +1,10 @@
 package org.ultramine.commands;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
 
 import org.ultramine.commands.syntax.ArgumentsPatternParser;
-import org.ultramine.server.util.MapWrapper;
-import org.ultramine.server.util.SetWrapper;
 import org.ultramine.server.util.TranslitTable;
 
 import cpw.mods.fml.common.Loader;
@@ -16,200 +12,51 @@ import cpw.mods.fml.common.ModContainer;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 
 public class CommandRegistry
 {
-	private final Map<String, NameInfo> nameInfos = new HashMap<>();
-	private final SortedSet<IExtendedCommand> registeredCommands = new TreeSet<>();
-	private final ArgumentsPatternParser argumentsPatternParser = new ArgumentsPatternParser();
-	// vanilla compatibility
-	@SuppressWarnings("unchecked")
-	private final Map<String, IExtendedCommand> commandMap = (Map) new MapWrapper<String, Object>(Maps.transformValues(nameInfos, NameInfo::getCurrent))
-	{
-		@Override
-		public IExtendedCommand put(String key, Object value)
-		{
-			if(value instanceof IExtendedCommand)
-				return addName(key, (IExtendedCommand) value);
-			else
-				registerVanillaCommand((ICommand) value);
-			return null;
-		}
-
-		@Override
-		public void putAll(Map<? extends String, ?> m)
-		{
-			for(Map.Entry<? extends String, ?> ent : m.entrySet())
-				put(ent.getKey(), ent.getValue());
-		}
-
-		@Override
-		public IExtendedCommand remove(Object key)
-		{
-			return key == null || key.getClass() != String.class ? null : remove((String) key);
-		}
-
-		private IExtendedCommand remove(String key)
-		{
-			return null; // TODO remove ?
-		}
-	};
-	@SuppressWarnings("unchecked")
-	private final Set<Object> commandSet = new SetWrapper<Object>((Set) registeredCommands)
-	{
-		@Override
-		public boolean add(Object o)
-		{
-			return false;
-		}
-
-		@Override
-		public boolean remove(Object o)
-		{
-			return false;
-		}
-
-		@Override
-		public boolean addAll(Collection<?> c)
-		{
-			return false;
-		}
-
-		@Override
-		public boolean retainAll(Collection<?> c)
-		{
-			return false;
-		}
-
-		@Override
-		public boolean removeAll(Collection<?> c)
-		{
-			return false;
-		}
-	};
+	private final Map<String, IExtendedCommand> commandMap;
+	private final SortedSet<IExtendedCommand> registeredCommands;
+	private final ArgumentsPatternParser argumentsPatternParser;
 
 	public CommandRegistry()
 	{
+		commandMap = new HashMap<String, IExtendedCommand>();
+		registeredCommands = new TreeSet<IExtendedCommand>();
+		argumentsPatternParser = new ArgumentsPatternParser();
 	}
 
-	public static class NameInfo
+	public IExtendedCommand registerCommand(IExtendedCommand command)
 	{
-		private final List<IExtendedCommand> available = new ArrayList<>();
-		private final String name;
-		private IExtendedCommand current;
-
-		private NameInfo(String name)
-		{
-			this.name = name;
-		}
-
-		public String getName()
-		{
-			return name;
-		}
-
-		IExtendedCommand add(IExtendedCommand command)
-		{
-			available.remove(command);
-			available.add(command);
-			IExtendedCommand old = current;
-			current = command;
-			return old;
-		}
-
-		void remove(IExtendedCommand command)
-		{
-			available.remove(command);
-			if(current == command)
-				current = available.get(available.size() - 1);
-		}
-
-		boolean switchTo(IExtendedCommand command)
-		{
-			if(current != command && available.remove(command))
-			{
-				available.add(command);
-				current = command;
-				return true;
-			}
-
-			return false;
-		}
-
-		public IExtendedCommand getCurrent()
-		{
-			return current;
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	private Iterable<String> getDefaultNames(IExtendedCommand command)
-	{
+		@SuppressWarnings("unchecked")
 		List<String> aliases = command.getCommandAliases();
-		if(aliases == null)
-			aliases = Collections.emptyList();
-		return Iterables.concat(
-				Collections.singletonList(command.getCommandName()),
-				aliases
-		);
-	}
-
-	private Iterable<String> getAllNames(IExtendedCommand command)
-	{
-		Iterable<String> names = getDefaultNames(command);
-		return Iterables.concat(
-				names,
-				Iterables.transform(names, TranslitTable::translitENRU)
-		);
-	}
-
-	private IExtendedCommand addName(String name, IExtendedCommand command)
-	{
-		return nameInfos.computeIfAbsent(name, NameInfo::new).add(command);
-	}
-
-	private void removeName(String name, IExtendedCommand command)
-	{
-		nameInfos.computeIfAbsent(name, NameInfo::new).remove(command);
-	}
-
-	public void registerCommand(IExtendedCommand command)
-	{
+		commandMap.put(command.getCommandName(), command);
+		commandMap.put(TranslitTable.translitENRU(command.getCommandName()), command);
 		registeredCommands.add(command);
 
-		addName(command.getGroup() + ":" + command.getCommandName(), command);
-		for(String name : getAllNames(command))
-			addName(name, command);
-	}
+		if (aliases != null)
+		{
+			for (String alias : aliases)
+			{
+				commandMap.put(alias, command);
+				commandMap.put(TranslitTable.translitENRU(alias), command);
+			}
+		}
 
-	public void unregisterCommand(IExtendedCommand command)
-	{
-		if(registeredCommands.remove(command))
-			for(String name : getAllNames(command))
-				removeName(name, command);
+		return command;
 	}
 
 	public IExtendedCommand registerVanillaCommand(ICommand command)
 	{
 		ModContainer active = Loader.instance().activeModContainer();
-		IExtendedCommand exCommand = new VanillaCommandWrapper(command, active != null ? active.getModId().toLowerCase() : "vanilla");
-		registerCommand(exCommand);
-		return exCommand;
+		return registerCommand(new VanillaCommandWrapper(command, active != null ? active.getModId().toLowerCase() : "vanilla"));
 	}
 
 	public void registerCommands(Class<?> cls)
 	{
-		List<HandlerBasedCommand.Builder> builders = new ArrayList<>();
-		Map<String, Map<String, ICommandHandler>> actions = new HashMap<>();
+		List<HandlerBasedCommand.Builder> builders = new ArrayList<HandlerBasedCommand.Builder>();
+		Map<String, Map<String, ICommandHandler>> actions = new HashMap<String, Map<String, ICommandHandler>>();
 
 		for (Method method : cls.getMethods())
 		{
@@ -232,7 +79,7 @@ public class CommandRegistry
 				Action data = method.getAnnotation(Action.class);
 
 				if (!actions.containsKey(data.command()))
-					actions.put(data.command(), new HashMap<>());
+					actions.put(data.command(), new HashMap<String, ICommandHandler>());
 
 				actions.get(data.command()).put(data.name(), new MethodBasedCommandHandler(method));
 			}
@@ -258,11 +105,6 @@ public class CommandRegistry
 	public Map<String, IExtendedCommand> getCommandMap()
 	{
 		return commandMap;
-	}
-
-	public Set<Object> getCommandSet()
-	{
-		return commandSet;
 	}
 
 	public List<String> filterPossibleCommandsNames(ICommandSender sender, String filter)

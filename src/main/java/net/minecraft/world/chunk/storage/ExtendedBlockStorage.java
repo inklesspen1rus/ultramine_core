@@ -2,31 +2,28 @@ package net.minecraft.world.chunk.storage;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ultramine.core.service.InjectService;
+import org.ultramine.server.chunk.OffHeapChunkStorage;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.chunk.NibbleArray;
-import org.ultramine.server.chunk.alloc.ChunkAllocService;
-import org.ultramine.server.chunk.alloc.MemSlot;
 
 public class ExtendedBlockStorage
 {
-	@InjectService private static ChunkAllocService alloc;
 	private int yBase;
 	private int blockRefCount;
 	private int tickRefCount;
-	private volatile MemSlot slot; // volatile read is cheap on x86
+	private OffHeapChunkStorage.MemSlot slot;
 	private static final String __OBFID = "CL_00000375";
 
-	public ExtendedBlockStorage(int p_i1997_1_, boolean p_i1997_2_, boolean zerofill)
+	public ExtendedBlockStorage(int p_i1997_1_, boolean p_i1997_2_, boolean clear)
 	{
 		this.yBase = p_i1997_1_;
-		this.slot = alloc.allocateSlot();
-		if(zerofill)
-			slot.zerofillAll();
+		this.slot = OffHeapChunkStorage.instance().allocateSlot();
+		if(clear)
+			slot.clearAll();
 	}
 	
 	public ExtendedBlockStorage(int p_i1997_1_, boolean p_i1997_2_)
@@ -34,22 +31,14 @@ public class ExtendedBlockStorage
 		this(p_i1997_1_, p_i1997_2_, true);
 	}
 
-	public ExtendedBlockStorage(MemSlot slot, int yBase, int blockRefCount, int tickRefCount)
-	{
-		this.slot = slot;
-		this.yBase = yBase;
-		this.blockRefCount = blockRefCount;
-		this.tickRefCount = tickRefCount;
-	}
-
 	public Block getBlockByExtId(int p_150819_1_, int p_150819_2_, int p_150819_3_)
 	{
-		return Block.getBlockById(slot.getBlockId(p_150819_1_, p_150819_2_, p_150819_3_));
+		return Block.getBlockById(slot.getBlockID(p_150819_1_, p_150819_2_, p_150819_3_));
 	}
 
 	public void func_150818_a(int p_150818_1_, int p_150818_2_, int p_150818_3_, Block p_150818_4_)
 	{
-		Block block1 = Block.getBlockById(slot.getBlockId(p_150818_1_, p_150818_2_, p_150818_3_));
+		Block block1 = Block.getBlockById(slot.getBlockID(p_150818_1_, p_150818_2_, p_150818_3_));
 
 		if (block1 != Blocks.air)
 		{
@@ -72,7 +61,7 @@ public class ExtendedBlockStorage
 		}
 
 		int i1 = Block.getIdFromBlock(p_150818_4_);
-		slot.setBlockId(p_150818_1_, p_150818_2_, p_150818_3_, i1);
+		slot.setBlockID(p_150818_1_, p_150818_2_, p_150818_3_, i1);
 	}
 
 	public int getExtBlockMetadata(int p_76665_1_, int p_76665_2_, int p_76665_3_)
@@ -131,8 +120,7 @@ public class ExtendedBlockStorage
 			{
 				for (int k = 0; k < 16; ++k)
 				{
-					// ultramine: replaced loop order from (x, y, z) to (y, z, x)
-					Block block = this.getBlockByExtId(k, i, j);
+					Block block = this.getBlockByExtId(i, j, k);
 
 					if (block != Blocks.air)
 					{
@@ -158,7 +146,7 @@ public class ExtendedBlockStorage
 	@SideOnly(Side.CLIENT)
 	public void clearMSBArray()
 	{
-		slot.zerofillMSB();
+		slot.clearMSB();
 	}
 
 	@Deprecated
@@ -229,7 +217,7 @@ public class ExtendedBlockStorage
 	public NibbleArray createBlockMSBArray()
 	{
 		logDeprecation();
-		slot.zerofillMSB();
+		slot.clearMSB();
 		return getBlockMSBArray();
 	}
 
@@ -240,26 +228,31 @@ public class ExtendedBlockStorage
 		log.warn("Called deprecated method in ExtendedBlockStorage. It may have no effect intended by the modder or lead to performance issues", new Throwable());
 	}
 	
-	public MemSlot getSlot()
+	public OffHeapChunkStorage.MemSlot getSlot()
 	{
 		return slot;
 	}
-
-	public ExtendedBlockStorage copy()
+	
+	public void free()
 	{
-		slot.getClass(); //NPE
-		return new ExtendedBlockStorage(slot.copy(), yBase, blockRefCount, tickRefCount);
+		slot.free();
+		slot = null;
 	}
 	
-	public void release()
+	@Override
+	protected void finalize()
 	{
-		MemSlot slotLocal = this.slot;
-		this.slot = null;
-		slotLocal.release();
-	}
-
-	public void incBlockRefCount()
-	{
-		blockRefCount++;
+		try
+		{
+			if(slot != null)
+			{
+				slot.free();
+				slot = null;
+			}
+		}
+		catch(Throwable t)
+		{
+			t.printStackTrace();
+		}
 	}
 }

@@ -9,13 +9,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.nbt.CompressedStreamTools;
-import net.minecraft.nbt.EbsSaveFakeNbt;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
@@ -23,6 +20,7 @@ import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.MinecraftException;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.NibbleArray;
 import net.minecraft.world.storage.IThreadedFileIO;
 import net.minecraft.world.storage.ThreadedFileIOBase;
 import net.minecraftforge.common.MinecraftForge;
@@ -40,33 +38,13 @@ import org.ultramine.server.util.VanillaChunkCoordIntPairSet;
 
 import cpw.mods.fml.common.FMLLog;
 
-import javax.annotation.Nullable;
-
 public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 {
 	private static final Logger logger = LogManager.getLogger();
 	protected final IntObjMap<PendingChunk> pendingSaves = HashIntObjMaps.newMutableMap();
-	private final List<PendingChunk> chunksToRemoveUm = new ArrayList<>();
-	private final List<PendingChunk> chunksToRemove = Lists.transform(chunksToRemoveUm, new Function<PendingChunk, PendingChunk>()
-	{
-		@Nullable
-		@Override
-		public PendingChunk apply(@Nullable PendingChunk input)
-		{
-			if(input == null)
-				return null;
-			NBTTagList sections = input.nbtTags.getCompoundTag("Level").getTagList("Sections", 10);
-			for(int i = 0; i < sections.tagCount(); i++)
-			{
-				NBTTagCompound nbt = sections.getCompoundTagAt(i);
-				if(nbt instanceof EbsSaveFakeNbt)
-					((EbsSaveFakeNbt)nbt).convertToNbt();
-			}
-			return input;
-		}
-	}); //mods compatibility
+	private final List<PendingChunk> chunksToRemove = new ArrayList<PendingChunk>(); //mods compatibility
 	private final Set<ChunkCoordIntPair> pendingAnvilChunksCoordinates = new VanillaChunkCoordIntPairSet(pendingSaves.keySet()); //mods compatibility
-	protected final Object syncLockObject = new Object();
+	protected Object syncLockObject = new Object();
 	public File chunkSaveLocation;
 	private static final String __OBFID = "CL_00000384";
 
@@ -101,7 +79,6 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 			NBTTagCompound nbttagcompound = (NBTTagCompound) data[1];
 			this.loadEntities(par1World, nbttagcompound.getCompoundTag("Level"), chunk);
 			MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(chunk, nbttagcompound));
-			releaseNbt(nbttagcompound);
 			return chunk;
 		}
 
@@ -120,8 +97,6 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
         	if(anvilchunkloaderpending != null)
         	{
         		nbttagcompound = anvilchunkloaderpending.nbtTags;
-
-				retainNbt(nbttagcompound);
         	}
         }
 
@@ -207,11 +182,10 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 	{
 		par1World.checkSessionLock();
 
-		boolean prevValue = NBTTagCompound.setUseKolobokeMap(true);
 		try
 		{
 			NBTTagCompound nbttagcompound = new NBTTagCompound();
-			NBTTagCompound nbttagcompound1 = new NBTTagCompound(13);
+			NBTTagCompound nbttagcompound1 = new NBTTagCompound();
 			nbttagcompound.setTag("Level", nbttagcompound1);
 			this.writeChunkToNBT(par2Chunk, par1World, nbttagcompound1);
 			MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Save(par2Chunk, nbttagcompound));
@@ -220,10 +194,6 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 		catch (Exception exception)
 		{
 			exception.printStackTrace();
-		}
-		finally
-		{
-			NBTTagCompound.setUseKolobokeMap(prevValue);
 		}
 	}
 
@@ -235,11 +205,11 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 		{
 //			if (this.pendingAnvilChunksCoordinates.contains(par1ChunkCoordIntPair))
 //			{
-//				for (int i = 0; i < this.chunksToRemoveUm.size(); ++i)
+//				for (int i = 0; i < this.chunksToRemove.size(); ++i)
 //				{
-//					if (((AnvilChunkLoader.PendingChunk)this.chunksToRemoveUm.get(i)).chunkCoordinate.equals(par1ChunkCoordIntPair))
+//					if (((AnvilChunkLoader.PendingChunk)this.chunksToRemove.get(i)).chunkCoordinate.equals(par1ChunkCoordIntPair))
 //					{
-//						this.chunksToRemoveUm.set(i, new AnvilChunkLoader.PendingChunk(par1ChunkCoordIntPair, par2NBTTagCompound));
+//						this.chunksToRemove.set(i, new AnvilChunkLoader.PendingChunk(par1ChunkCoordIntPair, par2NBTTagCompound));
 //						return;
 //					}
 //				}
@@ -250,14 +220,14 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 			PendingChunk pendingChunk = new PendingChunk(par1ChunkCoordIntPair, par2NBTTagCompound);
 			if(pendingSaves.put(hash, pendingChunk) != null)
 			{
-				for(int i = 0, s = chunksToRemoveUm.size(); i < s; i++)
-					if(chunksToRemoveUm.get(i).chunkCoordinate.equals(par1ChunkCoordIntPair))
+				for(int i = 0, s = chunksToRemove.size(); i < s; i++)
+					if(chunksToRemove.get(i).chunkCoordinate.equals(par1ChunkCoordIntPair))
 					{
-						chunksToRemoveUm.set(i, pendingChunk);
+						chunksToRemove.set(i, pendingChunk);
 						return;
 					}
 			}
-			chunksToRemoveUm.add(pendingChunk);
+			chunksToRemove.add(pendingChunk);
 			//this.pendingAnvilChunksCoordinates.add(par1ChunkCoordIntPair);
 			ThreadedFileIOBase.threadedIOInstance.queueIO(this);
 		}
@@ -296,11 +266,8 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 			synchronized (this.syncLockObject)
 			{
 				pendingSaves.remove(key);
-				chunksToRemoveUm.remove(pendingchunk);
+				chunksToRemove.remove(pendingchunk);
 			}
-
-			// release only after remove from lists (may be reread by other threads)
-			releaseNbt(pendingchunk.nbtTags);
 		}
 
 		return true;
@@ -354,28 +321,28 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 
 			if (extendedblockstorage != null)
 			{
-//				nbttagcompound1 = new NBTTagCompound();
-//				nbttagcompound1.setByte("Y", (byte)(extendedblockstorage.getYLocation() >> 4 & 255));
-//				nbttagcompound1.setByteArray("Blocks", extendedblockstorage.getSlot().copyLSB());
-//
-//				if (true/*extendedblockstorage.getBlockMSBArray() != null*/)
-//				{
-//					nbttagcompound1.setByteArray("Add", extendedblockstorage.getSlot().copyMSB());
-//				}
-//
-//				nbttagcompound1.setByteArray("Data", extendedblockstorage.getSlot().copyBlockMetadata());
-//				nbttagcompound1.setByteArray("BlockLight", extendedblockstorage.getSlot().copyBlocklight());
-//
-//				if (flag)
-//				{
-//					nbttagcompound1.setByteArray("SkyLight", extendedblockstorage.getSlot().copySkylight());
-//				}
-//				else
-//				{
-//					nbttagcompound1.setByteArray("SkyLight", new byte[2048]);
-//				}
+				nbttagcompound1 = new NBTTagCompound();
+				nbttagcompound1.setByte("Y", (byte)(extendedblockstorage.getYLocation() >> 4 & 255));
+				nbttagcompound1.setByteArray("Blocks", extendedblockstorage.getSlot().copyLSB());
 
-				nbttaglist.appendTag(new EbsSaveFakeNbt(extendedblockstorage.copy(), !flag));
+				if (true/*extendedblockstorage.getBlockMSBArray() != null*/)
+				{
+					nbttagcompound1.setByteArray("Add", extendedblockstorage.getSlot().copyMSB());
+				}
+
+				nbttagcompound1.setByteArray("Data", extendedblockstorage.getSlot().copyBlockMetadata());
+				nbttagcompound1.setByteArray("BlockLight", extendedblockstorage.getSlot().copyBlocklight());
+
+				if (flag)
+				{
+					nbttagcompound1.setByteArray("SkyLight", extendedblockstorage.getSlot().copySkylight());
+				}
+				else
+				{
+					nbttagcompound1.setByteArray("SkyLight", new byte[2048]);
+				}
+
+				nbttaglist.appendTag(nbttagcompound1);
 			}
 		}
 
@@ -392,7 +359,7 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 			while (iterator1.hasNext())
 			{
 				Entity entity = (Entity)iterator1.next();
-				nbttagcompound1 = new NBTTagCompound(34);
+				nbttagcompound1 = new NBTTagCompound();
 
 				try
 				{
@@ -412,13 +379,13 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 		}
 
 		par3NBTTagCompound.setTag("Entities", nbttaglist2);
-		NBTTagList nbttaglist3 = new NBTTagList(par1Chunk.chunkTileEntityMap.size());
+		NBTTagList nbttaglist3 = new NBTTagList();
 		iterator1 = par1Chunk.chunkTileEntityMap.values().iterator();
 
 		while (iterator1.hasNext())
 		{
 			TileEntity tileentity = (TileEntity)iterator1.next();
-			nbttagcompound1 = new NBTTagCompound(7);
+			nbttagcompound1 = new NBTTagCompound();
 			try {
 			tileentity.writeToNBT(nbttagcompound1);
 			nbttaglist3.appendTag(nbttagcompound1);
@@ -440,11 +407,11 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 			int z = par1Chunk.zPosition << 4;
 			
 			long k = par2World.getTotalWorldTime();
-			NBTTagList nbttaglist1 = new NBTTagList(set.size());
+			NBTTagList nbttaglist1 = new NBTTagList();
 			
 			for(PendingBlockUpdate p : set)
 			{
-				NBTTagCompound nbttagcompound2 = new NBTTagCompound(6);
+				NBTTagCompound nbttagcompound2 = new NBTTagCompound();
 				nbttagcompound2.setInteger("i", Block.getIdFromBlock(p.getBlock()));
 				nbttagcompound2.setInteger("x", x + p.x);
 				nbttagcompound2.setInteger("y", p.y);
@@ -475,40 +442,30 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 		for (int k = 0; k < nbttaglist.tagCount(); ++k)
 		{
 			NBTTagCompound nbttagcompound1 = nbttaglist.getCompoundTagAt(k);
-			if(nbttagcompound1 instanceof EbsSaveFakeNbt)
-			{
-				ExtendedBlockStorage ebs = ((EbsSaveFakeNbt)nbttagcompound1).getEbs().copy();
-				aextendedblockstorage[ebs.getYLocation() >> 4 & 255] = ebs;
-				continue;
-			}
 			byte b1 = nbttagcompound1.getByte("Y");
 			ExtendedBlockStorage extendedblockstorage = new ExtendedBlockStorage(b1 << 4, flag, false);
-			byte[] lsb = nbttagcompound1.getByteArray("Blocks");
-			byte[] msb;
+			extendedblockstorage.getSlot().setLSB(nbttagcompound1.getByteArray("Blocks"));
 
 			if (nbttagcompound1.hasKey("Add", 7))
 			{
-				msb = nbttagcompound1.getByteArray("Add");
+				extendedblockstorage.getSlot().setMSB(nbttagcompound1.getByteArray("Add"));
 			}
 			else
 			{
-				msb = null;
+				extendedblockstorage.getSlot().clearMSB();
 			}
 
-			byte[] meta = nbttagcompound1.getByteArray("Data");
-			byte[] blockLight = nbttagcompound1.getByteArray("BlockLight");
-			byte[] skyLight;
+			extendedblockstorage.getSlot().setBlockMetadata(nbttagcompound1.getByteArray("Data"));
+			extendedblockstorage.getSlot().setBlocklight(nbttagcompound1.getByteArray("BlockLight"));
 
 			if (flag)
 			{
-				skyLight = nbttagcompound1.getByteArray("SkyLight");
+				extendedblockstorage.getSlot().setSkylight(nbttagcompound1.getByteArray("SkyLight"));
 			}
 			else
 			{
-				skyLight = null;
+				extendedblockstorage.getSlot().clearSkylight();
 			}
-
-			extendedblockstorage.getSlot().setData(lsb, msb, meta, blockLight, skyLight);
 
 			extendedblockstorage.removeInvalidBlocks();
 			aextendedblockstorage[b1] = extendedblockstorage;
@@ -606,29 +563,7 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
 		synchronized(syncLockObject)
 		{
 			pendingSaves.clear();
-			chunksToRemoveUm.clear();
-		}
-	}
-
-	public static void releaseNbt(NBTTagCompound root)
-	{
-		NBTTagList sections = root.getCompoundTag("Level").getTagList("Sections", 10);
-		for(int i = 0; i < sections.tagCount(); i++)
-		{
-			NBTTagCompound nbt = sections.getCompoundTagAt(i);
-			if(nbt instanceof EbsSaveFakeNbt)
-				((EbsSaveFakeNbt)nbt).release();
-		}
-	}
-
-	private static void retainNbt(NBTTagCompound root)
-	{
-		NBTTagList sections = root.getCompoundTag("Level").getTagList("Sections", 10);
-		for(int i = 0; i < sections.tagCount(); i++)
-		{
-			NBTTagCompound nbt = sections.getCompoundTagAt(i);
-			if(nbt instanceof EbsSaveFakeNbt)
-				((EbsSaveFakeNbt)nbt).retain();
+			chunksToRemove.clear();
 		}
 	}
 	

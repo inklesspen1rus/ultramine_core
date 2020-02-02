@@ -20,6 +20,7 @@ public class PlayerDeathEvent extends PlayerEvent
 		this.damageSource = damageSource;
 		this.deathMessage = deathMessage;
 		this.keepInventory = keepInventory;
+
 	}
 
 	public @Nullable IChatComponent getDeathMessage()
