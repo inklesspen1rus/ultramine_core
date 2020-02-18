@@ -1,6 +1,7 @@
 This is stable version of UltraMine with changes
 Builder for Windows
 Original repository on gitlab - https://gitlab.ultramine.ru/ultramine
+Instructions (RU): https://gitlab.ultramine.ru/ultramine/ultramine_core-docs-ru/wikis/home
 
 Changes:
 Fast respawn after death (Because of not correctly keep inventory)
